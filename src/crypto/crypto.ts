@@ -1,4 +1,4 @@
-import { CryptoDriverChloride } from './crypto-driver-chloride';
+import { CryptoDriverChloride } from './crypto-driver-tweetnacl';
 import { CryptoDriverNode } from './crypto-driver-node';
 
 import { isNode } from 'browser-or-node';

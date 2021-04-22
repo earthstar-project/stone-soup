@@ -2,7 +2,7 @@ export * from './core-validators/addresses';
 export * from './core-validators/characters';
 export * from './core-validators/checkers';
 export * from './crypto/base32';
-export * from './crypto/crypto-driver-chloride';
+export * from './crypto/crypto-driver-tweetnacl';
 //export * from './crypto/crypto-driver-node';
 export * from './crypto/crypto-types';
 export * from './crypto/crypto';
