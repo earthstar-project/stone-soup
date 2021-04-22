@@ -49,7 +49,7 @@
     "browserify": "^17.0.0",
     "depchart": "^1.2.0",
     "onchange": "^7.1.0",
-    "tap": "^14.11.0",
+    "tap": "^15.0.4",
     "tap-spec": "^5.0.0",
     "tape": "^5.2.2",
     "typescript": "^4.2.4"
