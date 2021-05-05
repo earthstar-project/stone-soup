@@ -11,6 +11,7 @@
   "types": "dist/types/universal.d.ts",
   "browser": {
     "./build/index.js": "./build/index.browser.js",
+    "./build/platform.js": "./build/platform.browser.js",
     "./build/crypto/crypto-driver-node.js": false,
     "tap": "tape"
   },

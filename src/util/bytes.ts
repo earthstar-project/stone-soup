@@ -6,34 +6,21 @@
  * when bundling for the browser.
  */
 
-declare let window: any;
+import {
+    textDecoder,
+    textEncoder,
+} from '../platform';
 
 // TODO: remove this import after fixing b64String and hexString...
 import { bufferToBytes } from './buffers';
 
-// annoying workaround to get TextDecoder from Node or in browsers...
-import { TextDecoder, TextEncoder } from 'util';
-
-let decoder: TextDecoder;
-let encoder: TextEncoder;
-/* istanbul ignore next */ 
-if (TextDecoder !== undefined && TextEncoder !== undefined) {
-    // in node, it's in the 'util' package
-    decoder = new TextDecoder();
-    encoder = new TextEncoder();
-} else {
-    // in browser, it's a global on window
-    decoder = new window.TextDecoder();
-    encoder = new window.TextEncoder();
-}
-
 //--------------------------------------------------
 
 export let bytesToString = (bytes: Uint8Array): string =>
-    decoder.decode(bytes);
+    textDecoder.decode(bytes);
 
 export let stringToBytes = (str: string): Uint8Array =>
-    encoder.encode(str);
+    textEncoder.encode(str);
 
 //--------------------------------------------------
 
