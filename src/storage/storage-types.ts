@@ -27,6 +27,16 @@ import {
 
 //================================================================================
 
+export type StorageId = string;
+
+export enum Lifecycle {
+    NEW = 0,
+    HATCHING = 1,
+    READY = 2,
+    CLOSING = 3,
+    CLOSED = 4,
+}
+
 export type StorageEvent =
     'ingest' |  // 'ingest|/some/path.txt'
     'willClose' | 'didClose';
@@ -47,6 +57,35 @@ export interface IStorageAsync extends IStorageAsyncConfig {
     formatValidator: IFormatValidator;
     storageDriver: IStorageDriverAsync;
     bus: Superbus<StorageEvent>;
+    storageId: StorageId | undefined;  // will be defined after hatch()
+
+    lifecycle: Lifecycle;
+
+    //--------------------------------------------------
+    // LIFECYCLE
+
+    isNewOrHatching(): boolean;
+    isReady(): boolean;
+    isClosingOrClosed(): boolean;
+
+    // This also calls hatch() on the storageDriver.
+    // Hatch must be idempotent
+    hatch(): Promise<void>;
+
+    /**
+     * close()
+     *   * send StorageWillClose events and wait for event receivers to finish blocking.
+     *   * close the IStorage
+     *   * close the IStorageDriver
+     *   * send StorageDidClose events and do not wait for event receivers.
+     * 
+     * Any function called after the storage is closed will throw a StorageIsClosedError,
+     *  except isClosed() is always allowed, and close() can be called multiple times.
+     * 
+     * close() can happen while set() or ingest() are waiting for locks or have pending transactions.
+     * In that case, the pending operations will fail and throw a storageIsClosed.
+     */
+    close(): Promise<void>;
 
     //--------------------------------------------------
     // GET
@@ -76,29 +115,16 @@ export interface IStorageAsync extends IStorageAsyncConfig {
     // Already-empty docs will not be overwritten.
     // If an error occurs this will stop early.
     overwriteAllDocsByAuthor(keypair: AuthorKeypair): Promise<number | ValidationError>;
-
-    //--------------------------------------------------
-
-    isClosed(): boolean;
-    /**
-     * close()
-     *   * send StorageWillClose events and wait for event receivers to finish blocking.
-     *   * close the IStorage
-     *   * close the IStorageDriver
-     *   * send StorageDidClose events and do not wait for event receivers.
-     * 
-     * Any function called after the storage is closed will throw a StorageIsClosedError,
-     *  except isClosed() is always allowed, and close() can be called multiple times.
-     * 
-     * close() can happen while set() or ingest() are waiting for locks or have pending transactions.
-     * In that case, the pending operations will fail and throw a storageIsClosed.
-     */
-    close(): Promise<void>;
 }
 
 export interface IStorageDriverAsync extends IStorageAsyncConfig {
     workspace: WorkspaceAddress;
     lock: Lock;
+
+    // The driver will be hatched by the IStorage
+    // Hatch must be idempotent
+    hatch(): Promise<void>;
+
     // The max local index used so far.  the first doc will increment this and get index 1.
     //highestLocalIndex: LocalIndex;
     getHighestLocalIndex(): number;

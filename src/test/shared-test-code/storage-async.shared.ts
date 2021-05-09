@@ -5,10 +5,12 @@ import {
     WorkspaceAddress,
 } from '../../util/doc-types';
 import {
-    IStorageAsync,
+    IStorageAsync, Lifecycle,
 } from '../../storage/storage-types';
 import {
     isErr,
+    InstanceIsClosedError,
+    InstanceIsNotReadyYetError,
 } from '../../util/errors';
 import {
     microsecondNow, sleep,
@@ -62,10 +64,11 @@ export let runStorageTests = (subtestName: string, makeStorage: (ws: WorkspaceAd
     t.test(SUBTEST_NAME + ': config', async (t: any) => {
         let workspace = '+gardening.abcde';
         let storage = makeStorage(workspace);
+        await storage.hatch();
 
         // empty...
         t.same(await storage.getConfig('foo'), undefined, `getConfig('nonexistent') --> undefined`);
-        t.same(await storage.listConfigKeys(), [], `listConfigKeys() is []`);
+        t.ok((await storage.listConfigKeys()).length > 0, 'listConfigKeys does not crash when empty');
         t.same(await storage.deleteConfig('foo'), false, `deleteConfig('nonexistent') --> false`);
 
         // set some items...
@@ -74,7 +77,11 @@ export let runStorageTests = (subtestName: string, makeStorage: (ws: WorkspaceAd
 
         // after adding some items...
         t.same(await storage.getConfig('a'), 'aa', `getConfig works`);
-        t.same(await storage.listConfigKeys(), ['a', 'b'], `listConfigKeys() is ['a', 'b'] (sorted)`);
+
+        // filter out other random keys
+        let keys = await storage.listConfigKeys();
+        keys = keys.filter(k => k === 'a' || k === 'b');
+        t.same(keys, ['a', 'b'], `listConfigKeys() is ['a', 'b'] (sorted)`);
 
         t.same(await storage.deleteConfig('a'), true, 'delete returns true on success');
         t.same(await storage.deleteConfig('a'), false, 'delete returns false if nothing is there');
@@ -84,11 +91,50 @@ export let runStorageTests = (subtestName: string, makeStorage: (ws: WorkspaceAd
         t.end();
     });
 
-    t.test(SUBTEST_NAME + ': storage close() and throwing when closed', async (t: any) => {
+    t.test(SUBTEST_NAME + ': storage hatch(), close(), and throwing when closed', async (t: any) => {
+        let events: string[] = [];
         let workspace = '+gardening.abcde';
         let storage = makeStorage(workspace);
-        let events: string[] = [];
 
+        //--------------------------------------------------
+        // NEW
+        t.same(storage.lifecycle === Lifecycle.NEW, 'storage starts off NEW');
+        t.same(storage.isNewOrHatching(), true);
+        t.same(storage.isReady(), false);
+        t.same(storage.isClosingOrClosed(), false);
+
+        //--------------------------------------------------
+        // METHODS THROW WHEN NEW (not hatched)
+        await doesNotThrow(t, async () => storage.isClosingOrClosed(), 'isClosingOrClosed does not throw');
+        await throws(t, async () => await storage.getDocsSinceLocalIndex('all', 0, 1), 'throws before hatched');
+        await throws(t, async () => await storage.getAllDocs(), 'throws before hatched');
+        await throws(t, async () => await storage.getLatestDocs(), 'throws before hatched');
+        await throws(t, async () => await storage.getAllDocsAtPath('/a'), 'throws before hatched');
+        await throws(t, async () => await storage.getLatestDocAtPath('/a'), 'throws before hatched');
+        await throws(t, async () => await storage.queryDocs(), 'throws before hatched');
+
+        //--------------------------------------------------
+        // HATCH
+        t.same(storage.storageId, undefined, 'storageId is undefined before hatching');
+
+        await storage.hatch();
+
+        t.same(storage.lifecycle === Lifecycle.READY, 'storage is READY after hatching');
+        t.same(storage.isNewOrHatching(), false);
+        t.same(storage.isReady(), true);
+        t.same(storage.isClosingOrClosed(), false);
+
+        t.notSame(storage.storageId, undefined, 'storageId is set after hatching');
+        let storageId1 = storage.storageId;
+
+        // should be ok to hatch twice
+        await storage.hatch();
+        t.same(storage.lifecycle === Lifecycle.READY, 'storage is READY after hatching twice');
+
+        t.same(storage.storageId, storageId1, 'storageId does not change with multiple hatches');
+
+        //--------------------------------------------------
+        // EVENTS
         // subscribe in a different order than they will normally happen,
         // to make sure they really happen in the right order when they happen for real
         storage.bus.on('didClose', (channel, data) => {
@@ -100,8 +146,13 @@ export let runStorageTests = (subtestName: string, makeStorage: (ws: WorkspaceAd
             events.push(channel);
         });
 
-        t.same(storage.isClosed(), false, 'is not initially closed');
-        await doesNotThrow(t, async () => storage.isClosed(), 'isClosed does not throw');
+        //--------------------------------------------------
+        // METHODS WHEN READY
+        t.same(storage.isNewOrHatching(), false);
+        t.same(storage.isReady(), true);
+        t.same(storage.isClosingOrClosed(), false);
+
+        await doesNotThrow(t, async () => storage.isClosingOrClosed(), 'isClosingOrClosed does not throw');
         await doesNotThrow(t, async () => await storage.getDocsSinceLocalIndex('all', 0, 1), 'does not throw because not closed');
         await doesNotThrow(t, async () => await storage.getAllDocs(), 'does not throw because not closed');
         await doesNotThrow(t, async () => await storage.getLatestDocs(), 'does not throw because not closed');
@@ -116,18 +167,24 @@ export let runStorageTests = (subtestName: string, makeStorage: (ws: WorkspaceAd
         setTimeout(() => loggerTestCb.debug('--- setTimeout 0 ---'), 0);
         setImmediate(() => loggerTestCb.debug('--- setImmediate ---'));
 
+        //--------------------------------------------------
+        // CLOSE
+
         loggerTest.debug('closing...');
         await storage.close();
         loggerTest.debug('...done closing');
 
+        t.same(storage.isNewOrHatching(), false);
+        t.same(storage.isReady(), false);
+        t.same(storage.isClosingOrClosed(), true);
+
         // wait for didClose to happen on setTimeout
         await sleep(20);
-
         t.same(events, ['willClose', 'didClose'], 'closing events happened');
 
-        t.same(storage.isClosed(), true, 'is closed after close()');
-
-        await doesNotThrow(t, async () => storage.isClosed(), 'isClosed does not throw');
+        //--------------------------------------------------
+        // METHODS THROW WHEN CLOSED
+        await doesNotThrow(t, async () => storage.isClosingOrClosed(), 'isClosingOrClosed does not throw');
         await throws(t, async () => await storage.getDocsSinceLocalIndex('all', 0, 1), 'throws after closed');
         await throws(t, async () => await storage.getAllDocs(), 'throws after closed');
         await throws(t, async () => await storage.getLatestDocs(), 'throws after closed');
@@ -135,10 +192,13 @@ export let runStorageTests = (subtestName: string, makeStorage: (ws: WorkspaceAd
         await throws(t, async () => await storage.getLatestDocAtPath('/a'), 'throws after closed');
         await throws(t, async () => await storage.queryDocs(), 'throws after closed');
 
-        // TODO: skipping set() and ingest() for now
+        // TODO: skipping set() and ingest() for now, need to make sure they throw when closed
+
+        //--------------------------------------------------
+        // CLOSING TWICE
 
         await doesNotThrow(t, async () => await storage.close(), 'can close() twice');
-        t.same(storage.isClosed(), true, 'still closed after calling close() twice');
+        t.same(storage.isClosingOrClosed(), true, 'still closed after calling close() twice');
 
         t.same(events, ['willClose', 'didClose'], 'no more closing events on second call to close()');
 
@@ -152,6 +212,7 @@ export let runStorageTests = (subtestName: string, makeStorage: (ws: WorkspaceAd
     t.test(SUBTEST_NAME + ': storage overwriteAllDocsByAuthor', async (t: any) => {
         let workspace = '+gardening.abcde';
         let storage = makeStorage(workspace);
+        await storage.hatch();
 
         let keypair1 = storage.formatValidator.crypto.generateAuthorKeypair('aaaa');
         let keypair2 = storage.formatValidator.crypto.generateAuthorKeypair('aaaa');

@@ -23,6 +23,8 @@ import {
     IngestResult,
     IngestResultAndDoc,
     StorageEvent,
+    StorageId,
+    Lifecycle,
 } from './storage-types';
 import {
     IFormatValidator,
@@ -30,11 +32,12 @@ import {
 
 import {
     isErr,
-    StorageIsClosedError,
+    InstanceIsNotReadyYetError,
+    InstanceIsClosedError,
     ValidationError,
 } from '../util/errors';
 import {
-    microsecondNow,
+    microsecondNow, randomId,
 } from '../util/misc';
 import {
     compareArrays,
@@ -63,8 +66,9 @@ export class StorageAsync implements IStorageAsync {
     formatValidator: IFormatValidator;
     storageDriver: IStorageDriverAsync;
     bus: Superbus<StorageEvent>;
+    storageId: StorageId | undefined = undefined;
 
-    _isClosed: boolean = false;
+    lifecycle: Lifecycle = Lifecycle.NEW;
 
     constructor(workspace: WorkspaceAddress, validator: IFormatValidator, driver: IStorageDriverAsync) {
         logger.debug(`constructor.  driver = ${(driver as any)?.constructor?.name}`);
@@ -74,22 +78,109 @@ export class StorageAsync implements IStorageAsync {
         this.bus = new Superbus<StorageEvent>('|');
     }
 
+    //--------------------------------------------------
+    // LIFECYCLE
+
+    _throwIfNotReady() {
+        if (this.isNewOrHatching()) { throw new InstanceIsNotReadyYetError('storage is not ready (not hatched, or still hatching)'); }
+        if (this.isClosingOrClosed()) { throw new InstanceIsClosedError('storage is closed'); }
+    }
+    isNewOrHatching(): boolean {
+        return this.lifecycle === Lifecycle.NEW || this.lifecycle === Lifecycle.HATCHING;
+    }
+    isReady(): boolean {
+        return this.lifecycle === Lifecycle.READY;
+    }
+    isClosingOrClosed(): boolean {
+        // or closing
+        return this.lifecycle === Lifecycle.CLOSING || this.lifecycle === Lifecycle.CLOSED;
+    }
+
+    async hatch(): Promise<void> {
+        // throw error if closed
+        if (this.isClosingOrClosed()) { throw new InstanceIsClosedError('cannot hatch if closed'); }
+
+        // do nothing if we're ready, or already hatching
+        // e.g. if we're not NEW
+        if (this.isReady()) { return; }
+        if (this.lifecycle === Lifecycle.HATCHING) { return; }
+
+        // ok, now we know lifecycle is NEW, so let's hatch.
+
+        this.lifecycle = Lifecycle.HATCHING;
+
+        logger.debug('hatching...');
+
+        logger.debug('...hatching storageDriver');
+        await this.storageDriver.hatch();
+
+        // load storageId from config, or make a new one if needed
+        logger.debug('...loading storageId');
+        let configStorageId = await this.getConfig('storageId');
+        if (configStorageId === undefined) {
+            this.storageId = 'storage-' + randomId();
+            await this.setConfig('storageId', this.storageId);
+        } else {
+            this.storageId = configStorageId;
+        }
+
+        logger.debug('...hatching done');
+
+        this.lifecycle = Lifecycle.READY;
+    }
+
+    async close(): Promise<void> {
+        logger.debug('closing...');
+
+        if (this.isClosingOrClosed()) {
+            logger.debug('...already closed.');
+            return;
+        }
+        // TODO: what if we're NEW or HATCHING and we try to CLOSE?
+
+        this.lifecycle = Lifecycle.CLOSING;
+
+        logger.debug('    sending willClose blockingly...');
+        await this.bus.sendAndWait('willClose');
+        logger.debug('    marking self as closed...');
+
+
+        logger.debug('    closing storageDriver...');
+        await this.storageDriver.close();
+
+        this.lifecycle = Lifecycle.CLOSED;
+
+        logger.debug('    sending didClose nonblockingly...');
+        this.bus.sendLater('didClose');
+        logger.debug('...closing done');
+    }
+
+    //--------------------------------------------------
+    // CONFIG STORAGE
+
     async getConfig(key: string): Promise<string | undefined> {
+        this._throwIfNotReady();
         return await this.storageDriver.getConfig(key);
     }
     async setConfig(key: string, value: string): Promise<void> {
+        this._throwIfNotReady();
         return await this.storageDriver.setConfig(key, value);
     }
     async listConfigKeys(): Promise<string[]> {
+        this._throwIfNotReady();
         return await this.storageDriver.listConfigKeys();
     }
     async deleteConfig(key: string): Promise<boolean> {
+        this._throwIfNotReady();
         return await this.storageDriver.deleteConfig(key);
     }
 
+    //--------------------------------------------------
+    // GET
+
     async getDocsSinceLocalIndex(historyMode: HistoryMode, startAt: LocalIndex, limit?: number): Promise<Doc[]> {
         logger.debug(`getDocsSinceLocalIndex(${historyMode}, ${startAt}, ${limit})`);
-        if (this._isClosed) { throw new StorageIsClosedError(); }
+        this._throwIfNotReady();
         let query: Query = {
             historyMode: historyMode,
             orderBy: 'localIndex ASC',
@@ -101,11 +192,9 @@ export class StorageAsync implements IStorageAsync {
         return await this.storageDriver.queryDocs(query);
     }
 
-    //--------------------------------------------------
-    // GET
     async getAllDocs(): Promise<Doc[]> {
         logger.debug(`getAllDocs()`);
-        if (this._isClosed) { throw new StorageIsClosedError(); }
+        this._throwIfNotReady();
         return await this.storageDriver.queryDocs({
             historyMode: 'all',
             orderBy: 'path ASC',
@@ -113,7 +202,7 @@ export class StorageAsync implements IStorageAsync {
     }
     async getLatestDocs(): Promise<Doc[]> {
         logger.debug(`getLatestDocs()`);
-        if (this._isClosed) { throw new StorageIsClosedError(); }
+        this._throwIfNotReady();
         return await this.storageDriver.queryDocs({
             historyMode: 'latest',
             orderBy: 'path ASC',
@@ -121,7 +210,7 @@ export class StorageAsync implements IStorageAsync {
     }
     async getAllDocsAtPath(path: Path): Promise<Doc[]> {
         logger.debug(`getAllDocsAtPath("${path}")`);
-        if (this._isClosed) { throw new StorageIsClosedError(); }
+        this._throwIfNotReady();
         return await this.storageDriver.queryDocs({
             historyMode: 'all',
             orderBy: 'path ASC',
@@ -130,7 +219,7 @@ export class StorageAsync implements IStorageAsync {
     }
     async getLatestDocAtPath(path: Path): Promise<Doc | undefined> {
         logger.debug(`getLatestDocsAtPath("${path}")`);
-        if (this._isClosed) { throw new StorageIsClosedError(); }
+        this._throwIfNotReady();
         let docs = await this.storageDriver.queryDocs({
             historyMode: 'latest',
             orderBy: 'path ASC',
@@ -153,11 +242,11 @@ export class StorageAsync implements IStorageAsync {
 
     async set(keypair: AuthorKeypair, docToSet: DocToSet): Promise<IngestResultAndDoc> {
         loggerSet.debug(`set`, docToSet);
-        if (this._isClosed) { throw new StorageIsClosedError(); }
+        this._throwIfNotReady();
         let protectedCode = async (): Promise<IngestResultAndDoc> => {
             loggerSet.debug('  + set: start of protected region');
             loggerSet.debug('  | deciding timestamp: getting latest doc at the same path (from any author)');
-            if (this._isClosed) { throw new StorageIsClosedError(); }
+            this._throwIfNotReady();
 
             let timestamp: number;
             if (typeof docToSet.timestamp === 'number') {
@@ -204,7 +293,7 @@ export class StorageAsync implements IStorageAsync {
 
         loggerSet.debug('  + set: running protected region...');
         let result = await this.storageDriver.lock.run(protectedCode);
-        if (this._isClosed) { throw new StorageIsClosedError(); }
+        this._throwIfNotReady();
         loggerSet.debug('  + set: ...done running protected region.  result =', result);
         loggerSet.debug('set is done.');
 
@@ -213,7 +302,7 @@ export class StorageAsync implements IStorageAsync {
 
     async ingest(docToIngest: Doc, _getLock: boolean = true): Promise<IngestResultAndDoc> {
         loggerIngest.debug(`ingest`, docToIngest);
-        if (this._isClosed) { throw new StorageIsClosedError(); }
+        this._throwIfNotReady();
 
         loggerIngest.debug('    removing extra fields');
         let removeResultsOrErr = this.formatValidator.removeExtraFields(docToIngest);
@@ -232,7 +321,7 @@ export class StorageAsync implements IStorageAsync {
             // get other docs at the same path
             loggerIngest.debug(' >> ingest: start of protected region');
             loggerIngest.debug('  > getting other docs at the same path');
-            if (this._isClosed) { throw new StorageIsClosedError(); }
+            this._throwIfNotReady();
             let existingDocsSamePath = await this.getAllDocsAtPath(docToIngest.path);
 
             // check if this is obsolete or redudant from the same other
@@ -274,7 +363,7 @@ export class StorageAsync implements IStorageAsync {
             result = await protectedCode();
         }
         let { ingestResult, docIngested } = result;
-        if (this._isClosed) { throw new StorageIsClosedError(); }
+        this._throwIfNotReady();
         loggerIngest.debug(' >> ingest: ...done running protected region', ingestResult);
 
         // only send events if we successfully ingested a doc
@@ -334,24 +423,4 @@ export class StorageAsync implements IStorageAsync {
         return numOverwritten;
     }
 
-    isClosed(): boolean {
-        return this._isClosed;
-    }
-    async close(): Promise<void> {
-        logger.debug('closing...');
-        if (this._isClosed) {
-            logger.debug('...already closed.');
-            return;
-        }
-        // TODO: do this all in a lock?
-        logger.debug('    sending willClose blockingly...');
-        await this.bus.sendAndWait('willClose');
-        logger.debug('    marking self as closed...');
-        this._isClosed = true;
-        logger.debug('    closing storageDriver...');
-        await this.storageDriver.close();
-        logger.debug('    sending didClose nonblockingly...');
-        this.bus.sendLater('didClose');
-        logger.debug('...closing done');
-    }
 }

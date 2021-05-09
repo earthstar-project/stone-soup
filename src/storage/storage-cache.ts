@@ -1,5 +1,5 @@
 import { AuthorKeypair, Doc, DocToSet, Path } from "../util/doc-types";
-import { isErr, StorageIsClosedError } from "../util/errors";
+import { isErr, InstanceIsNotReadyYetError } from "../util/errors";
 import { microsecondNow } from "../util/misc";
 import { docMatchesFilter, cleanUpQuery } from "./query";
 import { QueryFollower } from "./query-follower";
@@ -93,8 +93,8 @@ export class StorageCache {
   // GET
 
   getAllDocs(): Doc[] {
-    if (this._storage.isClosed()) {
-      throw new StorageIsClosedError();
+    if (this._storage.isClosingOrClosed()) {
+      throw new InstanceIsNotReadyYetError();
     }
     return this.queryDocs({
       historyMode: "all",
@@ -103,8 +103,8 @@ export class StorageCache {
   }
 
   getLatestDocs(): Doc[] {
-    if (this._storage.isClosed()) {
-      throw new StorageIsClosedError();
+    if (this._storage.isClosingOrClosed()) {
+      throw new InstanceIsNotReadyYetError();
     }
     return this.queryDocs({
       historyMode: "latest",
@@ -113,8 +113,8 @@ export class StorageCache {
   }
 
   getAllDocsAtPath(path: Path): Doc[] {
-    if (this._storage.isClosed()) {
-      throw new StorageIsClosedError();
+    if (this._storage.isClosingOrClosed()) {
+      throw new InstanceIsNotReadyYetError();
     }
     return this.queryDocs({
       historyMode: "all",
@@ -124,8 +124,8 @@ export class StorageCache {
   }
 
   getLatestDocAtPath(path: Path): Doc | undefined {
-    if (this._storage.isClosed()) {
-      throw new StorageIsClosedError();
+    if (this._storage.isClosingOrClosed()) {
+      throw new InstanceIsNotReadyYetError();
     }
     let docs = this.queryDocs({
       historyMode: "latest",
@@ -206,8 +206,8 @@ export class StorageCache {
   // Do a version of set which assumes this will be latest, and add that doc to the cache.
   // In the meantime, call set on the backing storage, and update results after.
   set(keypair: AuthorKeypair, docToSet: DocToSet): IngestResultAndDoc {
-    if (this._storage.isClosed()) {
-      throw new StorageIsClosedError();
+    if (this._storage.isClosingOrClosed()) {
+      throw new InstanceIsNotReadyYetError();
     }
 
     let doc: Doc = {

@@ -14,7 +14,7 @@ import {
     IStorageDriverAsync
 } from "./storage-types";
 import {
-    StorageIsClosedError,
+    InstanceIsNotReadyYetError,
     ValidationError
 } from '../util/errors';
 
@@ -68,8 +68,10 @@ export class StorageDriverAsyncMemory implements IStorageDriverAsync {
     workspace: WorkspaceAddress;
     lock: Lock;
     _highestLocalIndex: LocalIndex = -1;
-    _isClosed: boolean = false;
     _configKv: Record<string, string> = {};
+
+    _isHatched: true | false | 'hatching' = false;
+    _isClosed: boolean = false;
   
     // Our indexes.
     // These maps all share the same Doc objects, so memory usage is not bad.
@@ -81,6 +83,17 @@ export class StorageDriverAsyncMemory implements IStorageDriverAsync {
         logger.debug('constructor');
         this.workspace = workspace;
         this.lock = new Lock();
+    }
+
+    async hatch(): Promise<void> {
+        if (this._isClosed) { throw new InstanceIsNotReadyYetError(); }
+        if (this._isHatched === true || this._isHatched === 'hatching' ) { return; }
+        this._isHatched = 'hatching';
+
+        logger.debug('hatching');
+        // do setup here
+
+        this._isHatched = true;
     }
   
     async getConfig(key: string): Promise<string | undefined> {
@@ -100,18 +113,18 @@ export class StorageDriverAsyncMemory implements IStorageDriverAsync {
 
     getHighestLocalIndex() {
         logger.debug(`getHighestLocalIndex(): it's ${this._highestLocalIndex}`);
-        if (this._isClosed) { throw new StorageIsClosedError(); }
+        if (this._isClosed) { throw new InstanceIsNotReadyYetError(); }
         return this._highestLocalIndex;
     }
   
     async _getAllDocs(): Promise<Doc[]> {
         // return in unsorted order
-        if (this._isClosed) { throw new StorageIsClosedError(); }
+        if (this._isClosed) { throw new InstanceIsNotReadyYetError(); }
         return [...this.docByPathAndAuthor.values()];
     }
     async _getLatestDocs(): Promise<Doc[]> {
         // return in unsorted order
-        if (this._isClosed) { throw new StorageIsClosedError(); }
+        if (this._isClosed) { throw new InstanceIsNotReadyYetError(); }
         let docs: Doc[] = [];
         for (let docArray of this.docsByPathNewestFirst.values()) {
             // this array is kept sorted newest-first
@@ -124,7 +137,7 @@ export class StorageDriverAsyncMemory implements IStorageDriverAsync {
         // Query the documents.
 
         logger.debug('queryDocs', queryToClean);
-        if (this._isClosed) { throw new StorageIsClosedError(); }
+        if (this._isClosed) { throw new InstanceIsNotReadyYetError(); }
 
         // clean up the query and exit early if possible.
         let { query, willMatch } = cleanUpQuery(queryToClean);
@@ -202,7 +215,7 @@ export class StorageDriverAsyncMemory implements IStorageDriverAsync {
         // overwrite existing doc even if this doc is older.
         // return a copy of the doc, frozen, with _localIndex set.
 
-        if (this._isClosed) { throw new StorageIsClosedError(); }
+        if (this._isClosed) { throw new InstanceIsNotReadyYetError(); }
 
         doc = {...doc};
         this._highestLocalIndex += 1;

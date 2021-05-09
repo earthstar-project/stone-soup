@@ -18,10 +18,19 @@ export class ValidationError extends EarthstarError {
 
 /** An IStorageAsync or IStorageDriverAsync was used after close() was called on it. */
 /* istanbul ignore next */
-export class StorageIsClosedError extends EarthstarError {
+export class InstanceIsClosedError extends EarthstarError {
     constructor(message?: string) {
-        super(message || 'a Storage or StorageDriver was used after being closed');
-        this.name = 'StorageIsClosedError';
+        super(message || 'something was used when it was CLOSING or CLOSED.');
+        this.name = 'InstanceIsClosedError ';
+    }
+}
+
+/** An IStorageAsync or IStorageDriverAsync was used before hatch() was called, or before hatch() finished running. */
+/* istanbul ignore next */
+export class InstanceIsNotReadyYetError extends EarthstarError {
+    constructor(message?: string) {
+        super(message || 'something was used when it was still NEW or HATCHING.');
+        this.name = 'InstanceIsNotReadyYetError ';
     }
 }
 

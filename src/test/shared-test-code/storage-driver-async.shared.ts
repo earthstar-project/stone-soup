@@ -43,6 +43,10 @@ export let runStorageDriverTests = (driverName: string, makeDriver: (ws: Workspa
     t.test(SUBTEST_NAME + ': empty storage', async (t: any) => {
         let workspace = '+gardening.abcde';
         let driver = makeDriver(workspace);
+        await driver.hatch();
+
+        // should be ok to hatch twice
+        await driver.hatch();
 
         t.same(driver.getHighestLocalIndex(), -1, 'highestLocalIndex starts at -1');
         t.same(await driver.queryDocs({}), [], 'query returns empty array');
@@ -54,6 +58,7 @@ export let runStorageDriverTests = (driverName: string, makeDriver: (ws: Workspa
     t.test(SUBTEST_NAME + ': config', async (t: any) => {
         let workspace = '+gardening.abcde';
         let driver = makeDriver(workspace);
+        await driver.hatch();
 
         // empty...
         t.same(await driver.getConfig('foo'), undefined, `getConfig('nonexistent') --> undefined`);
@@ -79,6 +84,7 @@ export let runStorageDriverTests = (driverName: string, makeDriver: (ws: Workspa
     t.test(SUBTEST_NAME + ': upsert and basic querying with one path', async (t: any) => {
         let workspace = '+gardening.abcde';
         let driver = makeDriver(workspace);
+        await driver.hatch();
 
         let doc0: Doc = {
             format: 'es.4',
