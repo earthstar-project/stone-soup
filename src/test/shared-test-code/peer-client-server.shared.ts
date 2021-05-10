@@ -51,6 +51,8 @@ export let runPeerClientServerTests = (subtestName: string, crypto: ICrypto, mak
         // make Peers
         let peerOnClient = new Peer();
         let peerOnServer = new Peer();
+        await peerOnClient.hatch();
+        await peerOnServer.hatch();
         t.notSame(peerOnClient.peerId, peerOnServer.peerId, 'peerIds are not the same');
 
         // make Storages and add them to the Peers
@@ -87,6 +89,8 @@ export let runPeerClientServerTests = (subtestName: string, crypto: ICrypto, mak
         // close Storages
         for (let storage of peerOnClient.storages()) { await storage.close(); }
         for (let storage of peerOnServer.storages()) { await storage.close(); }
+        await peerOnClient.close();
+        await peerOnServer.close();
         t.end();
     });
 };

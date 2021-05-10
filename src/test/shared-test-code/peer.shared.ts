@@ -46,6 +46,7 @@ export let runPeerTests = (subtestName: string, crypto: ICrypto, makeStorage: (w
         sortedStorages.sort(compareByFn(storage => storage.workspace));
 
         let peer = new Peer();
+        await peer.hatch();
 
         t.ok(typeof peer.peerId === 'string' && peer.peerId.length > 5, 'peer has a peerId');
 
@@ -74,6 +75,7 @@ export let runPeerTests = (subtestName: string, crypto: ICrypto, makeStorage: (w
         t.same(peer.workspaces(), ['+three.ws'], 'removed storage instance');
         t.same(peer.size(), 1, 'size is 1');
 
+        await peer.close();
         t.end();
 
         // TODO: eventually test peer.bus events when we have them

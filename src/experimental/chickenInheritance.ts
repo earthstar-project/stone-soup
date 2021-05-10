@@ -18,17 +18,7 @@ enum LifecycleCh {
                    // once CLOSED there's no going back
 }
 
-interface HatchableCh {
-    hatch(): Promise<void>;
-    isReady(): boolean;
-    ready: Promise<void>;  // is resolved when lifecycle is READY, rejects otherwise
-}
-interface ClosableCh {
-    close(): Promise<void>;
-    isClosed(): boolean;
-}
-
-class BasicChickenWithLifecycle implements HatchableCh, ClosableCh {
+class BasicChickenWithLifecycle {
     lifecycle: LifecycleCh = LifecycleCh.NEW;
 
     ready: Promise<void>;
@@ -47,7 +37,7 @@ class BasicChickenWithLifecycle implements HatchableCh, ClosableCh {
     //----------------------------------------
     // LIFECYCLE MANAGEMENT
     async hatch() {
-        if (this.lifecycle !== LifecycleCh.NEW) { return; }  // hatching twice does nothing
+        if (this.lifecycle !== LifecycleCh.NEW) { return this; }  // hatching twice does nothing
 
         this.lifecycle = LifecycleCh.HATCHING;
         await this.onHatch();
@@ -55,6 +45,7 @@ class BasicChickenWithLifecycle implements HatchableCh, ClosableCh {
 
         // release anyone waiting on our this.ready promise
         this._resolve();
+        return this;
     }
     async onHatch() {} // override me
     async close() {
@@ -119,6 +110,10 @@ let main = async () => {
     let myChickie = new ActualChicken(123);
     // you have to remember to call hatch and await it.
     await myChickie.hatch();
+
+    // you can do it in a single step also
+    // because hatch() returns `this`
+    let myChickie2 = await new ActualChicken(123).hatch();
 
     await myChickie.squawkAsync();
     myChickie.squawkSync();
