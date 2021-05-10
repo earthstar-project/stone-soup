@@ -22,6 +22,49 @@ let makeChickenName = async (): Promise<string> => {
 }
 
 //--------------------------------------------------
+// VERSION 0
+//
+// auto-hatch
+// - hatch is called for you
+// - user should await chicken.ready before calling any sync functions
+// - async functions do that awaiting for you
+
+class Chicken0 {
+    name: string | undefined;  // it's annoying that this can be undefined
+    numEggs: number;
+    ready: Promise<void>;
+    _isHatched: boolean = false;
+    constructor(numEggs: number) {
+        this.numEggs = numEggs;
+        this.ready = this._hatch();
+    }
+    // only the constructor should call _hatch, not the user
+    async _hatch() {
+        this.name = await makeChickenName();
+        this._isHatched = true;
+    }
+    squawkSync() {
+        if (!this._isHatched) { throw new Error('not hatched yet'); }
+        console.log(this.name);
+    }
+    async squawkAsync(): Promise<void> {
+        await this.ready;
+        console.log(this.name);
+    }
+}
+
+let main0 = async () => {
+    let myChickie = new Chicken0(123);
+
+    await myChickie.ready;    // remember to await this
+    myChickie.squawkSync();   // or this will throw an error
+
+    // or, the async functions always wait until hatching is done,
+    // internally, so you don't have to think about it
+    await myChickie.squawkAsync();
+}
+
+//--------------------------------------------------
 // VERSION 1
 //
 // hatch()
