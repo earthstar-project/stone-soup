@@ -34,6 +34,15 @@ export class QueryFollowerIsClosedError extends EarthstarError {
     }
 }
 
+/** An instance was used before being hatched, or after being closed, or some other lifecycle constraint was violated. */
+/* istanbul ignore next */
+export class LifecyleError extends EarthstarError {
+    constructor(message?: string) {
+        super(message || 'an instance was used before being hatched, or after being closed, or some other lifecycle constraint was violated');
+        this.name = 'LifecycleError';
+    }
+}
+
 /* istanbul ignore next */
 export class NotFoundError extends EarthstarError {
     constructor(message?: string) {

@@ -31,46 +31,111 @@ let loggerProm = new Logger('testProm', 'magenta');
 
 t.test('lifecycle basics', async (t: any) => {
 
-    logger.debug('instantiate --------------');
     t.ok(true, '--- instantiate ---');
     let lc = new LifecycleBase();
 
     t.same(lc.lifecycle, Lifecycle.NEW, 'A. starts off NEW');
     t.notOk(lc.isReady(), 'A. isReady');
-    t.notOk(lc.isSortofReady(), 'A. isSortofReady');
+    t.notOk(lc.isLooselyReady(), 'A. isSortofReady');
     t.notOk(lc.isClosed(), 'A. isClosed');
 
     //--------------------------------------------------
 
-    logger.debug('hatch --------------');
     t.ok(true, '--- hatch ---');
     await lc.hatch();
-    logger.debug('hatch again --------------');
     t.ok(true, '--- hatch ---');
     await lc.hatch();
 
     t.same(lc.lifecycle, Lifecycle.READY, 'B. is READY after hatch');
     t.ok(lc.isReady(), 'B. isReady');
-    t.ok(lc.isSortofReady(), 'B. isSortofReady');
+    t.ok(lc.isLooselyReady(), 'B. isSortofReady');
     t.notOk(lc.isClosed(), 'B. isClosed');
 
     //--------------------------------------------------
 
-    logger.debug('close --------------');
     t.ok(true, '--- close ---');
     await lc.close();
-    logger.debug('close again --------------');
     t.ok(true, '--- close ---');
     await lc.close();
 
     t.same(lc.lifecycle, Lifecycle.CLOSED, 'C. is CLOSED after close');
     t.notOk(lc.isReady(), 'C. isReady');
-    t.notOk(lc.isSortofReady(), 'C. isSortofReady');
+    t.notOk(lc.isLooselyReady(), 'C. isSortofReady');
     t.ok(lc.isClosed(), 'C. isClosed');
 
     //--------------------------------------------------
 
     logger.debug('done --------------');
     t.ok(true, '--- done ---');
+    t.end();
+});
+
+t.test('lifecycle ready promise and bus events', async (t: any) => {
+    let lc = new LifecycleBase();
+
+    let logs: string[] = ['-start'];
+
+    //------------------------------
+
+    lc.bus.on('hatching', () => {
+        t.same(Lifecycle[lc.lifecycle], 'HATCHING', 'on hatching, lifecycle is HATCHING');
+        logs.push('on-hatching');
+    });
+
+    lc.bus.on('ready', () => {
+        t.same(Lifecycle[lc.lifecycle], 'READY', 'on ready, lifecycle is READY');
+        logs.push('on-ready');
+    });
+    
+    lc.bus.on('closing', () => {
+        t.same(Lifecycle[lc.lifecycle], 'CLOSING', 'on closing, lifecycle is CLOSING');
+        logs.push('on-closing');
+    });
+
+    lc.bus.on('closed', () => {
+        t.same(Lifecycle[lc.lifecycle], 'CLOSED', 'on closed, lifecycle is CLOSED');
+        logs.push('on-closed');
+    });
+
+    //------------------------------
+
+    lc.ready.then(() => {
+        t.same(Lifecycle[lc.lifecycle], 'READY', 'await ready, lifecycle is READY');
+        logs.push('await-ready');
+    });
+
+    //------------------------------
+
+    t.ok(true, '--- hatch ---');
+    logs.push('-hatch');
+    await lc.hatch();
+
+    //------------------------------
+
+    t.ok(true, '--- close ---');
+    logs.push('-close');
+    await lc.close();
+
+    logs.push('-sleep');
+    await sleep(50);
+
+    logs.push('-end');
+
+    //------------------------------
+
+    let expectedLogs: string[] = [
+        '-start',
+        '-hatch',
+        'on-hatching',
+        'on-ready',
+        'await-ready',
+        '-close',
+        'on-closing',
+        'on-closed',
+        '-sleep',
+        '-end',
+    ];
+    t.same(logs, expectedLogs, 'logs are as expected');
+
     t.end();
 });

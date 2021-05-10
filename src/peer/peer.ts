@@ -7,7 +7,6 @@ import {
     PeerId,
 } from './peer-types';
 
-import { LifecycleBase, Lifecycle } from '../util/lifecycle';
 import { randomId } from '../util/misc';
 
 //--------------------------------------------------
@@ -20,7 +19,7 @@ let J = JSON.stringify;
 
 //export type PeerEvent = 'close';
 
-export class Peer extends LifecycleBase implements IPeer {
+export class Peer implements IPeer {
     peerId: PeerId
 
     //bus: Superbus<PeerEvent>;
@@ -28,7 +27,6 @@ export class Peer extends LifecycleBase implements IPeer {
     constructor() {
         logger.debug('constructor');
         logger.debug('...calling super');
-        super();
         logger.debug('...done calling super');
         //this.bus = new Superbus<PeerEvent>();
         this.storageMap = new SuperbusMap<WorkspaceAddress, IStorageAsync>();
@@ -39,39 +37,38 @@ export class Peer extends LifecycleBase implements IPeer {
     //--------------------------------------------------
     // lifecycle
 
-    async doHatch() {
-        logger.debug('getHatched - nothing to do');
+    async hatch() {
+        // do nothing
     }
-    async doClose() {
-        logger.debug('getClosed');
-        logger.debug('...closing all my storages...');
-        for (let storage of this.storageMap.values()) {
+
+    async close() {
+        logger.debug('close');
+        logger.debug('...closing all my storages and deleting them from my storageMap...');
+        let storages = this.storages();
+        for (let storage of storages) {
             await storage.close();
+            await this.storageMap.delete(storage.workspace);
         }
-        logger.debug('...done closing all my storages');
+        logger.debug('...done closing');
     }
 
     //--------------------------------------------------
     // getters
 
     hasWorkspace(workspace: WorkspaceAddress): boolean {
-        this._throwIfNotReady();
         return this.storageMap.has(workspace);
     }
     workspaces(): WorkspaceAddress[] {
-        this._throwIfNotReady();
         let keys = [...this.storageMap.keys()];
         keys.sort();
         return keys;
     }
     storages(): IStorageAsync[] {
-        this._throwIfNotReady();
         let keys = [...this.storageMap.keys()];
         keys.sort();
         return keys.map(key => this.storageMap.get(key) as IStorageAsync);
     }
     size(): number {
-        this._throwIfNotReady();
         return this.storageMap.size;
     }
 
@@ -79,7 +76,6 @@ export class Peer extends LifecycleBase implements IPeer {
     // setters
 
     async addStorage(storage: IStorageAsync): Promise<void> {
-        this._throwIfNotReady();
         logger.debug(`addStorage(${J(storage.workspace)})`);
         if (this.storageMap.has(storage.workspace)) {
             logger.debug(`already had a storage with that workspace`);
@@ -89,12 +85,10 @@ export class Peer extends LifecycleBase implements IPeer {
         logger.debug(`    ...addStorage: done`);
     }
     async removeStorageByWorkspace(workspace: WorkspaceAddress): Promise<void> {
-        this._throwIfNotReady();
         logger.debug(`removeStorageByWorkspace(${J(workspace)})`);
         await this.storageMap.delete(workspace);
     }
     async removeStorage(storage: IStorageAsync): Promise<void> {
-        this._throwIfNotReady();
         let existingStorage = this.storageMap.get(storage.workspace);
         if (storage === existingStorage) {
             logger.debug(`removeStorage(${J(storage.workspace)})`);
