@@ -21,18 +21,8 @@ export enum Lifecycle {
 export class LifecycleBase {
     lifecycle: Lifecycle = Lifecycle.NEW;
 
-    ready: Promise<void>;
-    _resolve: () => void;
-    _reject: () => void;
-
     constructor() {
         logger.debug('constructor');
-        this._resolve = () => {};
-        this._reject = () => {};
-        this.ready = new Promise<void>((resolve, reject) => {
-            this._resolve = resolve;
-            this._reject = reject;
-        });
     }
 
     /**
@@ -42,6 +32,7 @@ export class LifecycleBase {
     async hatch() {
         logger.debug('hatch');
 
+        // state machine
         if (this.lifecycle === Lifecycle.HATCHING || this.lifecycle === Lifecycle.READY) {
             // Ok to call hatch if you're already hatching or ready, it just does nothing.
             logger.debug(`...lifecycle is ${Lifecycle[this.lifecycle]} -- ignoring hatch attempt.`);
@@ -56,17 +47,13 @@ export class LifecycleBase {
         // Do the actual hatching
         this.lifecycle = Lifecycle.HATCHING;
         logger.debug('...calling getHatched');
-        await this.getHatched();
+        await this.doHatch();
         logger.debug('...done calling getHatched');
         this.lifecycle = Lifecycle.READY;
 
-        // release anyone waiting on our this.ready promise
-        logger.debug('...resolving ready promise...');
-        this._resolve();
-        logger.debug('...done hatching');
-
         // return `this` for easy chaining:
         //   like `let thing = await new Thing().hatch()`
+        logger.debug('...done hatching');
         return this;
     }
 
@@ -74,13 +61,14 @@ export class LifecycleBase {
      * Override this function in your subclass -- it's what should
      * happen when it's hatching
      */
-    async getHatched() {
+    async doHatch() {
         logger.debug('getHatched -- override me');
     }
 
     async close() {
         logger.debug('close');
 
+        // state machine
         // It's always safe to call close no matter what lifecycle state you're in.
         // It just does nothing unless you're READY.
         // TODO: can you close something that's NEW or HATCHING?
@@ -90,22 +78,9 @@ export class LifecycleBase {
         }
 
         this.lifecycle = Lifecycle.CLOSING;
-
-        // make a new promise that is always rejected, for people who `await ready` now or in the future
-        logger.debug('...updating promises...');
-        logger.debug('...make new rejected promise');
-
-        this.ready.catch(err => {});
-        this._reject();
-
-        this.ready = Promise.reject();
-        this.ready.catch(err => {});
-        logger.debug('...done with promises');
-
         logger.debug('...calling getClosed');
-        await this.getClosed();
+        await this.doClose();
         logger.debug('...done calling getClosed');
-
         this.lifecycle = Lifecycle.CLOSED;
 
         logger.debug('...done closing');
@@ -115,7 +90,7 @@ export class LifecycleBase {
      * Override this function in your subclass -- it's what should
      * happen when it's closing
      */
-    async getClosed() {
+    async doClose() {
         logger.debug('getClosed -- override me');
     }
 

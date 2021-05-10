@@ -39,10 +39,10 @@ export class Peer extends LifecycleBase implements IPeer {
     //--------------------------------------------------
     // lifecycle
 
-    async getHatched() {
+    async doHatch() {
         logger.debug('getHatched - nothing to do');
     }
-    async getClosed() {
+    async doClose() {
         logger.debug('getClosed');
         logger.debug('...closing all my storages...');
         for (let storage of this.storageMap.values()) {
