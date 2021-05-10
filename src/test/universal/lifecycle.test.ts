@@ -139,3 +139,34 @@ t.test('lifecycle ready promise and bus events', async (t: any) => {
 
     t.end();
 });
+
+class BadHatcher extends LifecycleBase<'ok'> {
+    constructor() { super(); }
+    async doHatch() {
+        throw new Error('kaboom');
+    }
+}
+
+t.test('lifecycle error during doHatch', async (t: any) => {
+    let bh = new BadHatcher();
+
+    setTimeout(async () => {
+        try {
+            await bh.hatch();
+            t.ok(false, 'hatch() should have thrown');
+        } catch (err) {
+            t.ok(true, 'hatch() threw as expected');
+        }
+    }, 20);
+
+    try {
+        await bh.ready;
+        t.ok(false, 'ready should have thrown');
+    } catch (err) {
+        t.ok(true, 'ready threw as expected');
+    }
+
+    await sleep(60);
+
+    t.end();
+});

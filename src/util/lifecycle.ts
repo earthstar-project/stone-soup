@@ -51,10 +51,24 @@ export class LifecycleBase<T extends string> {
     /**
      * Users of this class should call "await hatch" after instantiating it
      * and before trying to use it.
-     * 
+     *
+     * Hatching causes a whole series of events:
+     *   - bus event "hatching" is sent, blockingly
+     *   - your class's doHatch() is called and awaited
+     *   - bus event "ready" is sent, blockingly
+     *   - yourClass.ready gets resolved (or rejected)
+     *   - finally, the overall hatch() call finishes (or throws)
+     *  
      * `hatch()` returns `this` for easy chaining:
      * 
      *     `let thing = await new Thing().hatch()`
+     * 
+     * If doHatch() throws an error, that error will emerge in two places:
+     *   - at await yourClass.hatch()
+     *   - at await yourClass.ready
+     * 
+     * Errors from doHatch do not affect the bus events.
+     * 
      */
     async hatch() {
         logger.debug('hatch');
@@ -84,6 +98,7 @@ export class LifecycleBase<T extends string> {
         try {
             await this.doHatch();
         } catch (err) {
+            logger.debug('... ! hatch had an error');
             hatchErr = err;
         }
         logger.debug('...done calling getHatched');
@@ -96,7 +111,9 @@ export class LifecycleBase<T extends string> {
 
         logger.debug('...resolving "ready" promise');
         if (hatchErr !== undefined) {
+            logger.debug('...hatch had an error, surfacing that now...');
             this._readyDeferred.reject(hatchErr);
+            throw hatchErr;
         } else {
             this._readyDeferred.resolve();
         }
