@@ -2,8 +2,8 @@ import { Doc, Path, WorkspaceAddress } from "../util/doc-types";
 import { StorageDriverAsyncMemory } from "./storage-driver-async-memory";
 
 type SerializedDriverDocs = {
-  byPathAndAuthor: Map<string, Doc>;
-  byPathNewestFirst: Map<Path, Doc[]>;
+  byPathAndAuthor: Record<string, Doc>;
+  byPathNewestFirst: Record<Path, Doc[]>;
 };
 
 function isSerializedDriverDocs(value: any): value is SerializedDriverDocs {
@@ -13,9 +13,7 @@ function isSerializedDriverDocs(value: any): value is SerializedDriverDocs {
 
   if (
     "byPathAndAuthor" in value &&
-    "byPathNewestFirst" in value &&
-    value.byPathAndAuthor instanceof Map &&
-    value.byPathNewestFirst instanceof Map
+    "byPathNewestFirst" in value
   ) {
     return true;
   }
@@ -42,8 +40,8 @@ export class StorageDriverLocalStorage extends StorageDriverAsyncMemory {
         return;
       }
 
-      this.docByPathAndAuthor = parsed.byPathAndAuthor;
-      this.docsByPathNewestFirst = parsed.byPathNewestFirst;
+      this.docByPathAndAuthor = new Map(Object.entries(parsed.byPathAndAuthor));
+      this.docsByPathNewestFirst = new Map(Object.entries(parsed.byPathNewestFirst));
     }
   }
 
@@ -73,8 +71,8 @@ export class StorageDriverLocalStorage extends StorageDriverAsyncMemory {
     let upsertedDoc = super.upsert(doc);
 
     const docsToBeSerialised: SerializedDriverDocs = {
-      byPathAndAuthor: this.docByPathAndAuthor,
-      byPathNewestFirst: this.docsByPathNewestFirst,
+      byPathAndAuthor: Object.fromEntries(this.docByPathAndAuthor),
+      byPathNewestFirst: Object.fromEntries(this.docsByPathNewestFirst),
     };
 
     // Todo: Debouncing of writing in-memory values to localStorage.
