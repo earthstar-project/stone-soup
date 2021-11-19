@@ -1,10 +1,7 @@
 import { makeId } from '@earthstar-project/mini-rpc';
 import { SuperbusMap } from 'superbus-map';
-import { NetworkError } from '../../dist/types/legacy-node';
-import { FormatValidatorEs4 } from '../format-validators/format-validator-es4';
-import { StorageAsync } from '../storage/storage-async';
-import { StorageDriverAsyncMemory } from '../storage/storage-driver-async-memory';
 import { IStorageAsync } from '../storage/storage-types';
+import { Doc } from '../util/doc-types';
 import {
     ILocalPeer,
     IPacket,
@@ -16,36 +13,73 @@ import {
 } from "./types";
 
 
-class LocalPeer implements ILocalPeer {
+export class LocalPeer implements ILocalPeer {
+    _isHatched: boolean = false;
+    _isClosed: boolean = false;
+    _unsubFromGardens: any[] = [];
     peerId: string;
     gardens: SuperbusMap<NetworkKind, IPeerGarden> = new SuperbusMap();  // networkkind -> garden
     storages: SuperbusMap<string, IStorageAsync> = new SuperbusMap();  // workspace -> storage
     constructor(peerId?: string) {
         this.peerId = peerId ?? makeId();
     }
-    async hatch(): Promise<void> {}
-    async close(): Promise<void> {}
+    addGarden(garden: IPeerGarden): void {
+        if (this._isHatched === true) {
+            throw new Error('can only add gardens before hatching the localPeer');
+        }
+        this.gardens.set(garden.kind, garden);
+        let unsub = garden.onIncomingDoc(async (doc: Doc, sourcePeerId: string) => {
+            // send out to the other gardens
+            // they will skip any peers with the same peer id.
+            // do this all in parallel.
+            for (let garden of this.gardens.values()) {
+                garden.sendDoc(doc, sourcePeerId);
+            }
+        });
+        this._unsubFromGardens.push(unsub);
+    }
+    async hatch(): Promise<void> {
+        if (this._isHatched === true) { return; }
+        for (let garden of this.gardens.values()) {
+            await garden.hatch();
+        }
+        this._isHatched = true;
+    }
+    async close(): Promise<void> {
+        if (this._isClosed = true) { return; }
+        for (let unsub of this._unsubFromGardens) { unsub(); }
+        for (let garden of this.gardens.values()) {
+            await garden.close();
+        }
+        this._isClosed = true;
+    }
 }
 
-interface PacketPing extends IPacket {
+export interface PacketPing extends IPacket {
     packetId: string;
     message: 'ping',
 }
-interface PacketPong extends IPacket {
+export interface PacketPong extends IPacket {
     packetId: string;
     message: 'pong',
 }
 
-class PeerGardenHttpServer implements IPeerGarden {
+export class PeerGardenHttpServer implements IPeerGarden {
     kind: NetworkKind = 'HTTP';
     remotePeers: SuperbusMap<string, IRemotePeer> = new SuperbusMap();  // peer id -> peer
+    _onIncomingDocCbs: Set<any> = new Set();
     constructor(public port: number = 8000) {
     }
     async hatch(): Promise<void> {}
+    async sendDoc(doc: Doc, sourcePeerId: string): Promise<void> {}
+    onIncomingDoc(cb: (doc: Doc, sourcePeer: string) => Promise<void>): Thunk {
+        this._onIncomingDocCbs.add(cb);
+        return () => this._onIncomingDocCbs.delete(cb);
+    }
     async close(): Promise<void> {}
 }
 
-class RemotePeerHttp implements IRemotePeer {
+export class RemotePeerHttp implements IRemotePeer {
     kind: NetworkKind = 'HTTP';
     peerId: string = '?';
     workspaces: string[] = [];
@@ -56,7 +90,7 @@ class RemotePeerHttp implements IRemotePeer {
     async close(): Promise<void> {}
 }
 
-class TransportHttp implements ITransport {
+export class TransportHttp implements ITransport {
     kind: NetworkKind = 'HTTP';
     constructor() {
     }
@@ -71,37 +105,3 @@ class TransportHttp implements ITransport {
     }
     async close(): Promise<void> {}
 }
-
-//================================================================================
-// USAGE DEMO
-
-let main = async () => {
-    // set up a storage
-    let ws = '+knitting.ajofijff';
-    let knittingStorage = new StorageAsync(
-        ws,
-        FormatValidatorEs4,
-        new StorageDriverAsyncMemory(ws)
-    );
-
-    // set up our local peer
-    let localPeer = new LocalPeer();
-    localPeer.storages.set(ws, knittingStorage);
-
-    // add a garden where new remote peers can come and go
-    let httpGarden = new PeerGardenHttpServer(8080);
-    localPeer.gardens.set('HTTP', httpGarden);
-
-    // do stuff when peers come or go
-    httpGarden.remotePeers.bus.on('added', (channel, data) => {
-        let remotePeer = data.value as IRemotePeer;
-        console.log(`a new remote peer has appeared in the ${httpGarden.kind} garden: ${remotePeer.peerId}`);
-    });
-    httpGarden.remotePeers.bus.on('deleted', (channel, data) => {
-        let remotePeer = data.value as IRemotePeer;
-        console.log(`a remote peer has been removed from the ${httpGarden.kind} garden: ${remotePeer.peerId}`);
-    });
-
-    await localPeer.hatch();  // this will hatch everything else
-}
-main();
