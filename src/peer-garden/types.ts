@@ -1,8 +1,13 @@
 import { SuperbusMap } from "superbus-map";
 import { IStorageAsync } from '../storage/storage-types';
-import { Doc } from '../util/doc-types';
 
-export type NetworkKind = 'WEBSOCKET' | 'HYPERSWARM' | 'HTTP';
+export type NetworkKind =
+    //'WEBSOCKET_SERVER' |
+    //'WEBSOCKET_CLIENT' |
+    //'HYPERSWARM' |
+    'HTTP_SERVER' |
+    'HTTP_CLIENT';
+export type Role = 'ACTIVE' | 'PASSIVE';  // API role, not network role
 export type Thunk = () => void;
 
 export interface IPacket {
@@ -23,8 +28,7 @@ export interface IPeerGarden {
     kind: NetworkKind;
     remotePeers: SuperbusMap<string, IRemotePeer>;  // peer id -> peer
     hatch(): Promise<void>;
-    sendDoc(doc: Doc, sourcePeerId: string): Promise<void>;
-    onIncomingDoc(cb: (doc: Doc, sourcePeer: string) => Promise<void>): Thunk;
+    onIncomingPacket(cb: (packet: IPacket) => Promise<void>): Thunk;
     close(): Promise<void>;
 }
 

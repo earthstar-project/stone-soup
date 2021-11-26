@@ -6,6 +6,7 @@ import { IStorageAsync } from '../storage/storage-types';
 import { Doc } from '../util/doc-types';
 import {
     ILocalPeer,
+    IPacket,
     IPeerGarden,
     NetworkKind,
 } from "./types";
@@ -29,13 +30,15 @@ export class LocalPeer implements ILocalPeer {
             throw new Error('can only add gardens before hatching the localPeer');
         }
         this.gardens.set(garden.kind, garden);
-        let unsub = garden.onIncomingDoc(async (doc: Doc, sourcePeerId: string) => {
+        let unsub = garden.onIncomingPacket(async (packet: IPacket) => {
             // send out to the other gardens
             // they will skip any peers with the same peer id.
             // do this all in parallel.
             log('onIncomingDoc listener got a new doc.  sending to all gardens...');
             for (let garden of this.gardens.values()) {
-                garden.sendDoc(doc, sourcePeerId);
+                for (let remotePeer of garden.remotePeers.values()) {
+                    await remotePeer.transport.send(packet);
+                }
             }
             log('onIncomingDoc listener got a new doc.  ...done.');
         });
@@ -55,9 +58,8 @@ export class LocalPeer implements ILocalPeer {
         log('close()');
         if (this._isClosed === true) { log('already closed.'); return; }
         for (let unsub of this._unsubFromGardens) { unsub(); }
-        log(this.gardens.size);
         for (let garden of [...this.gardens.values()]) {
-            log('closing a garden');
+            log('closing a garden:', garden.kind);
             await garden.close();
         }
         this._isClosed = true;

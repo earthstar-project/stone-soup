@@ -18,18 +18,18 @@ export interface PacketPong extends IPacket {
 }
 
 export class RemotePeerHttp implements IRemotePeer {
-    kind: NetworkKind = 'HTTP';
+    kind: NetworkKind = 'HTTP_SERVER';
     peerId: string = '?';
     workspaces: string[] = [];
-    transport: TransportHttp = new TransportHttp();
+    transport: TransportHttpToServer = new TransportHttpToServer();
     constructor() {
     }
     async hatch(): Promise<void> {}
     async close(): Promise<void> {}
 }
 
-export class TransportHttp implements ITransport {
-    kind: NetworkKind = 'HTTP';
+export class TransportHttpToServer implements ITransport {
+    kind: NetworkKind = 'HTTP_SERVER';
     constructor() {
     }
     async hatch(): Promise<void> {}
