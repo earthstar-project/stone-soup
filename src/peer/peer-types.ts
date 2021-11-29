@@ -2,15 +2,24 @@ import { Doc, WorkspaceAddress } from '../util/doc-types';
 import { IStorageAsync, StorageId } from '../storage/storage-types';
 import { Query } from '../query/query-types';
 import { Crypto } from '../crypto/crypto';
+import { IGardener, NetworkType } from './gardener-types';
 
 //================================================================================
 // PEER
+
+export type LifecycleState = 'NEW' | 'HATCHED' | 'CLOSED';
 
 export type PeerId = string;
 
 export interface IPeer {
     // TODO: oops, or should we have storage IDs instead of peer IDs?
     peerId: PeerId,
+
+    hatch(): Promise<void>;
+    close(): Promise<void>;
+
+    addGardener(gardener: IGardener): Promise<void>;
+    removeGardener(networkType: NetworkType): Promise<void>;
 
     // getters
     hasWorkspace(workspace: WorkspaceAddress): boolean;
@@ -21,7 +30,7 @@ export interface IPeer {
 
     // setters
     addStorage(storage: IStorageAsync): Promise<void>;
-    removeStorageByWorkspace(workspace: WorkspaceAddress): Promise<void> 
+    removeStorageByWorkspace(workspace: WorkspaceAddress): Promise<void>;
     removeStorage(storage: IStorageAsync): Promise<void>;
 }
 

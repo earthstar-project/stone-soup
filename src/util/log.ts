@@ -18,10 +18,10 @@
  *    This applies to all "sources" (can't be set individually)
  *         EARTHSTAR_LOG_LEVEL=2 npm run test
  *
- * 2. Use setLogLevels() to globally modify the levels:
- *         setLogLevels({ sync: 2 });
+ * 2. Use setLogLevel() to globally modify the levels:
+ *         setLogLevel({ sync: 2 });
  *
- * The environment variable wins over the numbers set by setLogLevels.
+ * The environment variable wins over the numbers set by setLogLevel.
  */
 
 import chalk from 'chalk';
