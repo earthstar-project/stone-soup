@@ -6,6 +6,7 @@ import {
     IPeer,
     PeerId,
 } from './peer-types';
+import { IGardener, NetworkType, RemotePeer } from './gardener-types';
 
 import { randomId } from '../util/misc';
 
@@ -21,6 +22,8 @@ let J = JSON.stringify;
 
 export class Peer implements IPeer {
     peerId: PeerId
+    remotePeers: Map<PeerId, RemotePeer> = new Map();
+    gardeners: Map<NetworkType, IGardener> = new Map();
 
     //bus: Superbus<PeerEvent>;
     storageMap: SuperbusMap<WorkspaceAddress, IStorageAsync>;
@@ -29,6 +32,13 @@ export class Peer implements IPeer {
         //this.bus = new Superbus<PeerEvent>();
         this.storageMap = new SuperbusMap<WorkspaceAddress, IStorageAsync>();
         this.peerId = 'peer:' + randomId();
+    }
+
+    //--------------------------------------------------
+
+    async addGardener(gardener: IGardener): Promise<void> {
+        this.gardeners.set(gardener.networkType, gardener);
+        await gardener.hatch();
     }
 
     //--------------------------------------------------
