@@ -1,0 +1,15 @@
+{
+  "imports": {
+    "chalk": "https://deno.land/x/chalk_deno@v4.1.1-deno/source/index.js",
+    "fast-deep-equal": "https://esm.sh/fast-deep-equal",
+    "rfdc": "https://esm.sh/rfdc",
+    "concurrency-friends": "https://cdn.skypack.dev/concurrency-friends",
+    "dbly-linked-list": "https://cdn.skypack.dev/dbly-linked-list",
+    "fast-json-stable-stringify": "https://esm.sh/fast-json-stable-stringify",
+    "rfc4648": "https://esm.sh/rfc4648",
+    "sha256-uint8array": "https://esm.sh/sha256-uint8array",
+    "superbus": "https://cdn.skypack.dev/superbus",
+    "superbus-map": "https://cdn.skypack.dev/superbus-map",
+    "tweetnacl": "https://esm.sh/tweetnacl"
+  }
+}

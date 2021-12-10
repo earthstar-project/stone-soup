@@ -6,7 +6,6 @@ browser/*
 browserify-tests
 build/
 coverage/
-dist/*
 node/*
 node_modules/
 yarn-error.log
