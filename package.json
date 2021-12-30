@@ -91,7 +91,7 @@
     "browserify": "^17.0.0",
     "depchart": "^1.2.0",
     "dts-bundle-generator": "^5.9.0",
-    "esbuild": "^0.11.18",
+    "esbuild": "^0.14.9",
     "onchange": "^7.1.0",
     "tap": "^14.11.0",
     "tap-spec": "^5.0.0",
@@ -99,6 +99,7 @@
     "typescript": "^4.2.4"
   },
   "dependencies": {
+    "@noble/ed25519": "^1.3.0",
     "chalk": "^4.1.1",
     "chloride": "^2.4.1",
     "concurrency-friends": "^5.0.1",
