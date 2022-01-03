@@ -10,21 +10,21 @@ import { storageDriversAsync_nodeAndUniversal } from './platform.node';
 import { runPeerClientServerTests } from '../shared-test-code/peer-client-server.shared';
 import { runPeerTests } from '../shared-test-code/peer.shared';
 import { setGlobalCryptoDriver } from '../../crypto/global-crypto-driver';
+import { testScenarios } from '../improved/test-scenarios.node'
 
 //================================================================================
 
-for (let storageDriver of storageDriversAsync_nodeAndUniversal) {
+for (let scenario of testScenarios) {
     // just hardcode this crypto driver since it works on all platforms
     let cryptoDriver = CryptoDriverTweetnacl;
     setGlobalCryptoDriver(cryptoDriver);
 
-    let storageDriverName = (storageDriver as any).name;
+    let storageDriverName = scenario.name;
     let cryptoDriverName = (cryptoDriver as any).name;
     let description = `${storageDriverName} + ${cryptoDriverName}`;
 
     let makeStorage = (ws: WorkspaceAddress): IStorageAsync => {
-        let stDriver = new storageDriver(ws);
-        let storage = new StorageAsync(ws, FormatValidatorEs4, stDriver);
+        let storage = new StorageAsync(ws, FormatValidatorEs4, scenario.makeDriver(ws));
         return storage;
     }
 

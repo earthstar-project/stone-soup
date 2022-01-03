@@ -4,6 +4,8 @@ import { IStorageDriverAsync } from '../../storage/storage-types';
 
 import { CryptoDriverNode } from '../../crypto/crypto-driver-node';
 
+import { StorageDriverSqliteNode } from '../../storage/storage-driver-sqlite-node'
+
 
 import {
     cryptoDrivers_universal,
@@ -20,6 +22,7 @@ if (process && process.version >= 'v12') {
 }
 
 export let storageDriversAsync_nodeOnly: ClassThatImplements<IStorageDriverAsync>[] = [
+    StorageDriverSqliteNode
 ];
 
 //================================================================================

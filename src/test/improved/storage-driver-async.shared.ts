@@ -58,7 +58,7 @@ export let runStorageDriverTests = (scenario: TestScenario) => {
 
         // empty...
         t.same(await driver.getConfig('foo'), undefined, `getConfig('nonexistent') --> undefined`);
-        t.same(await driver.listConfigKeys(), [], `listConfigKeys() is []`);
+        t.same(await driver.listConfigKeys(), scenario.builtinConfigKeys, `listConfigKeys() only contains builtin config keys: ${scenario.builtinConfigKeys}`);
         t.same(await driver.deleteConfig('foo'), false, `deleteConfig('nonexistent') --> false`);
 
         // set some items...
@@ -67,7 +67,7 @@ export let runStorageDriverTests = (scenario: TestScenario) => {
 
         // after adding some items...
         t.same(await driver.getConfig('a'), 'aa', `getConfig works`);
-        t.same(await driver.listConfigKeys(), ['a', 'b'], `listConfigKeys() is ['a', 'b'] (sorted)`);
+        t.same(await driver.listConfigKeys(), ['a', 'b', ...scenario.builtinConfigKeys], `listConfigKeys() is ${(['a', 'b', ...scenario.builtinConfigKeys])} (sorted)`);
 
         t.same(await driver.deleteConfig('a'), true, 'delete returns true on success');
         t.same(await driver.deleteConfig('a'), false, 'delete returns false if nothing is there');

@@ -3,7 +3,7 @@ import { WorkspaceAddress } from '../../util/doc-types';
 import { IStorageDriverAsync } from '../../storage/storage-types';
 
 // specific drivers
-import { CryptoDriverTweetnacl } from '../../crypto/crypto-driver-tweetnacl';
+import { CryptoDriverNoble } from '../../crypto/crypto-driver-noble';
 import { CryptoDriverChloride } from '../../crypto/crypto-driver-chloride';
 import { StorageDriverAsyncMemory } from '../../storage/storage-driver-async-memory';
 import { StorageDriverLocalStorage } from '../../storage/storage-driver-local-storage';
@@ -16,12 +16,13 @@ import { TestScenario } from './test-scenario-types';
 
 export let testScenarios: TestScenario[] = [
     {
-        name: 'StorageDriverAsyncMemory + CryptoDriverTweetnacl',
-        cryptoDriver: CryptoDriverTweetnacl,
+        name: 'StorageDriverAsyncMemory + CryptoDriverNoble',
+        cryptoDriver: CryptoDriverNoble,
         persistent: false,
         platforms: { browser: true, node: true, deno: true },
         makeDriver: (ws: WorkspaceAddress): IStorageDriverAsync =>
             new StorageDriverAsyncMemory(ws),
+        builtinConfigKeys: []
     },
     {
         name: 'StorageDriverAsyncMemory + CryptoDriverChloride',
@@ -30,22 +31,25 @@ export let testScenarios: TestScenario[] = [
         platforms: { browser: true, node: true, deno: true },
         makeDriver: (ws: WorkspaceAddress): IStorageDriverAsync =>
             new StorageDriverAsyncMemory(ws),
+        builtinConfigKeys: []
     },
     {
-        name: 'StorageDriverLocalStorage + CryptoDriverTweetnacl',
-        cryptoDriver: CryptoDriverTweetnacl,
+        name: 'StorageDriverLocalStorage + CryptoDriverNoble',
+        cryptoDriver: CryptoDriverNoble,
         persistent: true,
         platforms: { browser: true, node: false, deno: false },
         makeDriver: (ws: WorkspaceAddress): IStorageDriverAsync =>
             new StorageDriverLocalStorage(ws),
+        builtinConfigKeys: []
     },
     {
-        name: 'StorageDriverIndexedDB + CryptoDriverTweetnacl',
-        cryptoDriver: CryptoDriverTweetnacl,
+        name: 'StorageDriverIndexedDB + CryptoDriverNoble',
+        cryptoDriver: CryptoDriverNoble,
         persistent: true,
         platforms: { browser: true, node: false, deno: false },
         makeDriver: (ws: WorkspaceAddress): IStorageDriverAsync =>
             new StorageDriverIndexedDB(ws),
+        builtinConfigKeys: []
     }
 ]
 

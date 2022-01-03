@@ -58,7 +58,7 @@ let _runStorageConfigTests = (scenario: TestScenario, mode: 'storage' | 'storage
 
         // empty...
         t.same(await storage.getConfig('a'), undefined, `getConfig('nonexistent') --> undefined`);
-        t.same(await storage.listConfigKeys(), [], `listConfigKeys() is [] when empty`);
+        t.same(await storage.listConfigKeys(), scenario.builtinConfigKeys, `listConfigKeys() only contains built-in config keys`);
         t.same(await storage.deleteConfig('a'), false, `deleteConfig('nonexistent') --> false`);
 
         // set some items...
@@ -67,7 +67,7 @@ let _runStorageConfigTests = (scenario: TestScenario, mode: 'storage' | 'storage
 
         // verify items are there...
         t.same(await storage.getConfig('a'), 'aa', `getConfig works`);
-        t.same(await storage.listConfigKeys(), ['a', 'b'], `listConfigKeys() is ['a', 'b'] (sorted)`);
+        t.same(await storage.listConfigKeys(), ['a', 'b', ...scenario.builtinConfigKeys], `listConfigKeys() is ${(['a', 'b', ...scenario.builtinConfigKeys])} (sorted)`);
 
         await storage.setConfig('a', 'aaa');
         t.same(await storage.getConfig('a'), 'aaa', `getConfig overwrites old value`);
@@ -76,7 +76,7 @@ let _runStorageConfigTests = (scenario: TestScenario, mode: 'storage' | 'storage
         t.same(await storage.deleteConfig('a'), true, 'delete returns true on success');
         t.same(await storage.deleteConfig('a'), false, 'delete returns false if nothing is there');
         t.same(await storage.getConfig('a'), undefined, `getConfig returns undefined after deleting the key`);
-        t.same(await storage.listConfigKeys(), ['b'], `listConfigKeys() is ['b'] after deleting 'a'`);
+        t.same(await storage.listConfigKeys(), ['b', ...scenario.builtinConfigKeys], `listConfigKeys() is ${(['b', ...scenario.builtinConfigKeys])} after deleting 'a'`);
 
         // close without erasing
         await storage.close(false);
