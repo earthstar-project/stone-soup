@@ -132,14 +132,14 @@ export let docMatchesFilter = (doc: Doc, filter: QueryFilter): boolean => {
     // Does the doc match the filters?
     if (filter.path !== undefined && doc.path !== filter.path) { return false; }
     if (filter.pathStartsWith !== undefined && !doc.path.startsWith(filter.pathStartsWith)) { return false; }
-    if (filter.pathEndsWith !== undefined && !doc.path.startsWith(filter.pathEndsWith)) { return false; }
+    if (filter.pathEndsWith !== undefined && !doc.path.endsWith(filter.pathEndsWith)) { return false; }
     if (filter.author !== undefined && doc.author !== filter.author) { return false; }
     if (filter.timestamp !== undefined && doc.timestamp !== filter.timestamp) { return false; }
     if (filter.timestampGt !== undefined && !(doc.timestamp > filter.timestampGt)) { return false; }
-    if (filter.timestampLt !== undefined && !(doc.timestamp > filter.timestampLt)) { return false; }
+    if (filter.timestampLt !== undefined && !(doc.timestamp < filter.timestampLt)) { return false; }
     let contentLength = stringLengthInBytes(doc.content);
     if (filter.contentLength !== undefined && contentLength !== filter.contentLength) { return false; }
     if (filter.contentLengthGt !== undefined && !(contentLength > filter.contentLengthGt)) { return false; }
-    if (filter.contentLengthLt !== undefined && !(contentLength > filter.contentLengthLt)) { return false; }
+    if (filter.contentLengthLt !== undefined && !(contentLength < filter.contentLengthLt)) { return false; }
     return true;
 }
