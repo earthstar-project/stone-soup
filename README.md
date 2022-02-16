@@ -1,3 +1,5 @@
+> ** This is where work on the first big refactor of Earthstar was done, and has since been merged into the main Earthstar repo. It is archived for posterity. ** 
+
 # Stone Soup - Earthstar v2
 
 This is a re-implementation of [Earthstar](https://github.com/earthstar-project/earthstar),
